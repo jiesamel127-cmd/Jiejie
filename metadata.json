@@ -1,0 +1,6 @@
+{
+  "name": "JIEGO",
+  "description": "Aplikasi grup order K-Pop JIEGO untuk memantau status pesanan, daftar item belanjaan, impor rekapan CSV, dan sisa tagihan pembeli.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

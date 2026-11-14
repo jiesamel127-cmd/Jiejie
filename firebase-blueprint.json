@@ -1,0 +1,547 @@
+{
+  "entities": {
+    "GroupOrder": {
+      "title": "GroupOrder",
+      "description": "A K-Pop group order campaign managed or tracked by JIEGO.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the creator."
+        },
+        "name": {
+          "type": "string",
+          "description": "Display title of the K-Pop group order."
+        },
+        "artistGroup": {
+          "type": "string",
+          "description": "K-Pop artist or group name (e.g., SEVENTEEN, NewJeans)."
+        },
+        "batchCode": {
+          "type": "string",
+          "description": "Batch or PO reference code."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["OPEN", "CONFIRMED", "WAITING_PAYMENT", "ORDERED", "SHIPPED", "COMPLETED"],
+          "description": "Current fulfillment status of the group order."
+        },
+        "closingDateMillis": {
+          "type": "integer",
+          "description": "Closing date of the group order in epoch milliseconds."
+        },
+        "paymentDeadlineMillis": {
+          "type": "integer",
+          "description": "Payment deadline in epoch milliseconds."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Important GO notes, EMS/tax info, or announcements."
+        },
+        "memberCount": {
+          "type": "integer",
+          "description": "Number of participating members in this group order."
+        },
+        "totalOrderValue": {
+          "type": "integer",
+          "description": "Total order value in IDR across all members."
+        },
+        "totalPaidAmount": {
+          "type": "integer",
+          "description": "Total paid amount in IDR across all members."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "name",
+        "artistGroup",
+        "batchCode",
+        "status",
+        "closingDateMillis",
+        "paymentDeadlineMillis",
+        "notes",
+        "memberCount",
+        "totalOrderValue",
+        "totalPaidAmount",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MemberOrder": {
+      "title": "MemberOrder",
+      "description": "A participating member's order summary and payment ledger inside a Group Order.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the creator."
+        },
+        "orderId": {
+          "type": "string",
+          "description": "ID of the parent GroupOrder document."
+        },
+        "memberName": {
+          "type": "string",
+          "description": "Name of the participating buyer."
+        },
+        "memberHandle": {
+          "type": "string",
+          "description": "Social handle or WhatsApp number."
+        },
+        "isCurrentUser": {
+          "type": "boolean",
+          "description": "Whether this member entry belongs to the current user."
+        },
+        "shippingFee": {
+          "type": "integer",
+          "description": "Estimated or final EMS/tax/domestic shipping fee in IDR."
+        },
+        "totalItemsCost": {
+          "type": "integer",
+          "description": "Sum of all item subtotals for this member in IDR."
+        },
+        "paidAmount": {
+          "type": "integer",
+          "description": "Amount already paid by this member in IDR."
+        },
+        "orderStatus": {
+          "type": "string",
+          "enum": ["CONFIRMED", "WAITING_PAYMENT", "ORDERED", "SHIPPED", "COMPLETED"],
+          "description": "Order fulfillment status for this member."
+        },
+        "lastPaymentMethod": {
+          "type": "string",
+          "description": "Last recorded payment method (e.g., QRIS, BCA)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Member-specific notes or tracking number."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "orderId",
+        "memberName",
+        "memberHandle",
+        "isCurrentUser",
+        "shippingFee",
+        "totalItemsCost",
+        "paidAmount",
+        "orderStatus",
+        "lastPaymentMethod",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "OrderItem": {
+      "title": "OrderItem",
+      "description": "An individual K-Pop album, photocard, or merch item purchased by a member.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the creator."
+        },
+        "orderId": {
+          "type": "string",
+          "description": "ID of the parent GroupOrder document."
+        },
+        "memberId": {
+          "type": "string",
+          "description": "ID of the parent MemberOrder document."
+        },
+        "itemName": {
+          "type": "string",
+          "description": "Item title."
+        },
+        "variant": {
+          "type": "string",
+          "description": "Version, member, or POB variant."
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "Quantity purchased."
+        },
+        "unitPrice": {
+          "type": "integer",
+          "description": "Unit price per item in IDR."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "orderId",
+        "memberId",
+        "itemName",
+        "variant",
+        "quantity",
+        "unitPrice",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "GoNotification": {
+      "title": "GoNotification",
+      "description": "Notification entry for order status updates, payment deadline reminders, GO updates, and photo updates.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the notification creator."
+        },
+        "orderId": {
+          "type": "string",
+          "description": "Related GroupOrder document ID."
+        },
+        "orderName": {
+          "type": "string",
+          "description": "Display name of the related GroupOrder."
+        },
+        "memberId": {
+          "type": "string",
+          "description": "Optional related MemberOrder ID."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["ORDER_STATUS", "PAYMENT_REMINDER", "GO_UPDATE", "PHOTO_UPDATE"],
+          "description": "Category of notification."
+        },
+        "title": {
+          "type": "string",
+          "description": "Notification headline."
+        },
+        "message": {
+          "type": "string",
+          "description": "Detailed notification message."
+        },
+        "isRead": {
+          "type": "boolean",
+          "description": "Read status flag."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "orderId",
+        "orderName",
+        "memberId",
+        "type",
+        "title",
+        "message",
+        "isRead",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CatalogItem": {
+      "title": "CatalogItem",
+      "description": "A JIEGO store catalog product with price, DP, stock count, and included components.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the owner."
+        },
+        "title": {
+          "type": "string",
+          "description": "Product title (e.g., LIGHTSTICK LNGSHOT)."
+        },
+        "artistGroup": {
+          "type": "string",
+          "description": "Artist or group name (e.g., LNGSHOT)."
+        },
+        "category": {
+          "type": "string",
+          "description": "Product category (e.g., Lightstick, Album, Photocard)."
+        },
+        "price": {
+          "type": "integer",
+          "description": "Full product price in IDR."
+        },
+        "dpAmount": {
+          "type": "integer",
+          "description": "Required down payment (DP) amount in IDR."
+        },
+        "stock": {
+          "type": "integer",
+          "description": "Available stock count."
+        },
+        "components": {
+          "type": "string",
+          "description": "Included items/components summary."
+        },
+        "imageKey": {
+          "type": "string",
+          "description": "Local drawable key for pre-bundled product photography."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional catalog notes."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "title",
+        "artistGroup",
+        "category",
+        "price",
+        "dpAmount",
+        "stock",
+        "components",
+        "imageKey",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ExchangeRates": {
+      "title": "ExchangeRates",
+      "description": "Owner-configured country exchange rates to IDR for K-Pop group order gross price calculation.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the owner."
+        },
+        "china": {
+          "type": "number",
+          "description": "China (CNY/RMB) to IDR exchange rate."
+        },
+        "korea": {
+          "type": "number",
+          "description": "Korea (KRW) to IDR exchange rate."
+        },
+        "thailand": {
+          "type": "number",
+          "description": "Thailand (THB) to IDR exchange rate."
+        },
+        "jepang": {
+          "type": "number",
+          "description": "Japan (JPY) to IDR exchange rate."
+        },
+        "vietnam": {
+          "type": "number",
+          "description": "Vietnam (VND) to IDR exchange rate."
+        },
+        "taiwan": {
+          "type": "number",
+          "description": "Taiwan (TWD) to IDR exchange rate."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "china",
+        "korea",
+        "thailand",
+        "jepang",
+        "vietnam",
+        "taiwan",
+        "updatedAt"
+      ]
+    },
+    "PhotoUpdate": {
+      "title": "PhotoUpdate",
+      "description": "Order proof, warehouse arrival, packing, and buyer testimonial photos uploaded by Owner or Buyer.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the uploader."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "PROOF_CHECKOUT",
+            "ARRIVED_WH_KR_CN",
+            "ARRIVED_WH_INA",
+            "ARRIVED_ADMIN_PACKING",
+            "PACKING",
+            "TESTI"
+          ],
+          "description": "Photo update category."
+        },
+        "uploaderRole": {
+          "type": "string",
+          "enum": ["OWNER", "BUYER"],
+          "description": "Role that uploaded the photo."
+        },
+        "uploaderName": {
+          "type": "string",
+          "description": "Uploader or buyer name (required for buyer TESTI)."
+        },
+        "uploaderPhone": {
+          "type": "string",
+          "description": "Uploader or buyer phone number (required for buyer TESTI)."
+        },
+        "orderId": {
+          "type": "string",
+          "description": "Optional related GroupOrder document ID."
+        },
+        "orderName": {
+          "type": "string",
+          "description": "Optional related GroupOrder display name."
+        },
+        "caption": {
+          "type": "string",
+          "description": "Caption, resi note, or buyer testimonial message."
+        },
+        "imageBase64": {
+          "type": "string",
+          "description": "Compressed JPEG photo encoded in Base64."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when updated."
+        }
+      },
+      "required": [
+        "userId",
+        "category",
+        "uploaderRole",
+        "uploaderName",
+        "uploaderPhone",
+        "orderId",
+        "orderName",
+        "caption",
+        "imageBase64",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "NotificationSubscriber": {
+      "title": "NotificationSubscriber",
+      "description": "Registered signed-in buyer email contact for owner-initiated email and notification updates.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the signed-in user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Verified Google account email address."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the signed-in user."
+        },
+        "platform": {
+          "type": "string",
+          "description": "Client platform (e.g., ANDROID)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when first registered."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated."
+        }
+      },
+      "required": [
+        "userId",
+        "email",
+        "displayName",
+        "platform",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/stores/{storeId}/groupOrders/{orderId}": {
+      "schema": { "$ref": "#/entities/GroupOrder" },
+      "description": "JIEGO store Group Order campaigns managed by owner jiego4sho@gmail.com and viewable by signed-in buyers."
+    },
+    "/stores/{storeId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/MemberOrder" },
+      "description": "Participating member order ledgers in the JIEGO store."
+    },
+    "/stores/{storeId}/items/{itemId}": {
+      "schema": { "$ref": "#/entities/OrderItem" },
+      "description": "Purchased items per member in the JIEGO store."
+    },
+    "/stores/{storeId}/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/GoNotification" },
+      "description": "Order status, payment reminder, GO update, and photo update notifications for the JIEGO store."
+    },
+    "/stores/{storeId}/catalogItems/{catalogId}": {
+      "schema": { "$ref": "#/entities/CatalogItem" },
+      "description": "JIEGO store catalog items with price, DP, and stock."
+    },
+    "/stores/{storeId}/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/ExchangeRates" },
+      "description": "JIEGO store configuration settings including country exchange rates."
+    },
+    "/stores/{storeId}/photoUpdates/{photoId}": {
+      "schema": { "$ref": "#/entities/PhotoUpdate" },
+      "description": "Owner proof/warehouse/packing photos and buyer testimonial photos in the JIEGO store."
+    },
+    "/stores/{storeId}/subscribers/{subscriberId}": {
+      "schema": { "$ref": "#/entities/NotificationSubscriber" },
+      "description": "Signed-in buyer email directory readable only by store owner jiego4sho@gmail.com."
+    }
+  }
+}

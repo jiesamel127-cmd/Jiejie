@@ -1,0 +1,497 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: default deny everything
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isStoreOwner() {
+      return isSignedIn() &&
+             'email' in request.auth.token &&
+             request.auth.token.email is string &&
+             request.auth.token.email.lower() == 'jiego4sho@gmail.com';
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidGoStatus(status) {
+      return status in ['OPEN', 'CONFIRMED', 'WAITING_PAYMENT', 'ORDERED', 'SHIPPED', 'COMPLETED'];
+    }
+
+    function isValidMemberOrderStatus(status) {
+      return status in ['CONFIRMED', 'WAITING_PAYMENT', 'ORDERED', 'SHIPPED', 'COMPLETED'];
+    }
+
+    function isValidNotificationType(type) {
+      return type in ['ORDER_STATUS', 'PAYMENT_REMINDER', 'GO_UPDATE', 'PHOTO_UPDATE'];
+    }
+
+    // Entity validation helpers
+    function isValidGroupOrder(data, expectedUid) {
+      return data.userId is string && data.userId == expectedUid &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+             data.artistGroup is string && data.artistGroup.size() >= 1 && data.artistGroup.size() <= 60 &&
+             data.batchCode is string && data.batchCode.size() <= 40 &&
+             data.status is string && isValidGoStatus(data.status) &&
+             data.closingDateMillis is int && data.closingDateMillis > 0 &&
+             data.paymentDeadlineMillis is int && data.paymentDeadlineMillis > 0 &&
+             data.notes is string && data.notes.size() <= 500 &&
+             data.memberCount is int && data.memberCount >= 0 && data.memberCount <= 10000 &&
+             data.totalOrderValue is int && data.totalOrderValue >= 0 &&
+             data.totalPaidAmount is int && data.totalPaidAmount >= 0 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidMemberOrder(data, expectedUid) {
+      return data.userId is string && data.userId == expectedUid &&
+             isValidId(data.orderId) &&
+             data.memberName is string && data.memberName.size() >= 1 && data.memberName.size() <= 80 &&
+             data.memberHandle is string && data.memberHandle.size() <= 60 &&
+             data.isCurrentUser is bool &&
+             data.shippingFee is int && data.shippingFee >= 0 &&
+             data.totalItemsCost is int && data.totalItemsCost >= 0 &&
+             data.paidAmount is int && data.paidAmount >= 0 &&
+             data.orderStatus is string && isValidMemberOrderStatus(data.orderStatus) &&
+             data.lastPaymentMethod is string && data.lastPaymentMethod.size() <= 50 &&
+             data.notes is string && data.notes.size() <= 300 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidOrderItem(data, expectedUid) {
+      return data.userId is string && data.userId == expectedUid &&
+             isValidId(data.orderId) &&
+             isValidId(data.memberId) &&
+             data.itemName is string && data.itemName.size() >= 1 && data.itemName.size() <= 120 &&
+             data.variant is string && data.variant.size() <= 80 &&
+             data.quantity is int && data.quantity >= 1 && data.quantity <= 999 &&
+             data.unitPrice is int && data.unitPrice >= 0 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidNotification(data, expectedUid) {
+      return data.userId is string && data.userId == expectedUid &&
+             isValidId(data.orderId) &&
+             data.orderName is string && data.orderName.size() >= 1 && data.orderName.size() <= 120 &&
+             data.memberId is string && data.memberId.size() <= 128 &&
+             data.type is string && isValidNotificationType(data.type) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.message is string && data.message.size() >= 1 && data.message.size() <= 400 &&
+             data.isRead is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidCatalogItem(data, expectedUid) {
+      return data.userId is string && data.userId == expectedUid &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.artistGroup is string && data.artistGroup.size() >= 1 && data.artistGroup.size() <= 60 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 40 &&
+             data.price is int && data.price >= 0 &&
+             data.dpAmount is int && data.dpAmount >= 0 && data.dpAmount <= data.price &&
+             data.stock is int && data.stock >= 0 && data.stock <= 10000 &&
+             data.components is string && data.components.size() <= 400 &&
+             data.imageKey is string && data.imageKey.size() <= 60 &&
+             (!('imageBase64' in data) || (data.imageBase64 is string && data.imageBase64.size() <= 600000)) &&
+             data.notes is string && data.notes.size() <= 400 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidRate(v) {
+      return v is number && v > 0 && v <= 1000000;
+    }
+
+    function isValidExchangeRates(data, expectedUid) {
+      return data.userId is string && data.userId == expectedUid &&
+             isValidRate(data.china) &&
+             isValidRate(data.korea) &&
+             isValidRate(data.thailand) &&
+             isValidRate(data.jepang) &&
+             isValidRate(data.vietnam) &&
+             isValidRate(data.taiwan) &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidPhotoCategory(category) {
+      return category in [
+        'PROOF_CHECKOUT',
+        'ARRIVED_WH_KR_CN',
+        'ARRIVED_WH_INA',
+        'ARRIVED_ADMIN_PACKING',
+        'PACKING',
+        'TESTI'
+      ];
+    }
+
+    function isValidPhotoUpdate(data, expectedUid) {
+      return data.userId is string && data.userId == expectedUid &&
+             data.category is string && isValidPhotoCategory(data.category) &&
+             data.uploaderRole is string && data.uploaderRole in ['OWNER', 'BUYER'] &&
+             data.uploaderName is string && data.uploaderName.size() <= 80 &&
+             data.uploaderPhone is string && data.uploaderPhone.size() <= 30 &&
+             (data.category != 'TESTI' || (data.uploaderName.size() >= 1 && data.uploaderPhone.size() >= 5)) &&
+             data.orderId is string && data.orderId.size() <= 128 &&
+             data.orderName is string && data.orderName.size() <= 120 &&
+             data.caption is string && data.caption.size() <= 300 &&
+             data.imageBase64 is string && data.imageBase64.size() >= 10 && data.imageBase64.size() <= 600000 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidSubscriber(data, expectedUid) {
+      return data.userId is string && data.userId == expectedUid &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+             'email' in request.auth.token &&
+             request.auth.token.email is string &&
+             data.email.lower() == request.auth.token.email.lower() &&
+             data.displayName is string && data.displayName.size() <= 80 &&
+             data.platform is string && data.platform.size() >= 1 && data.platform.size() <= 32 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /stores/{storeId} {
+
+      // 1. Group Orders
+      match /groupOrders/{orderId} {
+        allow get: if isSignedIn() && storeId == 'jiego' && isValidId(orderId);
+        allow list: if isSignedIn() && storeId == 'jiego';
+        allow delete: if isStoreOwner() && storeId == 'jiego' && isValidId(orderId);
+
+        allow create: if (isStoreOwner() || (isSignedIn() && incoming().userId == request.auth.uid)) &&
+                         storeId == 'jiego' &&
+                         isValidId(orderId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'name', 'artistGroup', 'batchCode', 'status',
+                           'closingDateMillis', 'paymentDeadlineMillis', 'notes',
+                           'memberCount', 'totalOrderValue', 'totalPaidAmount',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'name', 'artistGroup', 'batchCode', 'status',
+                           'closingDateMillis', 'paymentDeadlineMillis', 'notes',
+                           'memberCount', 'totalOrderValue', 'totalPaidAmount',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidGroupOrder(incoming(), request.auth.uid);
+
+        allow update: if storeId == 'jiego' &&
+                         isValidId(orderId) &&
+                         isValidGroupOrder(incoming(), existing().userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         existing().status != 'COMPLETED' &&
+                         (
+                           // Owner actions: edit metadata, status, or sync aggregates
+                           (isStoreOwner() && (
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'name', 'artistGroup', 'batchCode', 'closingDateMillis',
+                               'paymentDeadlineMillis', 'notes', 'updatedAt'
+                             ]) ||
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'status', 'updatedAt'
+                             ]) ||
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'memberCount', 'totalOrderValue', 'totalPaidAmount', 'updatedAt'
+                             ])
+                           )) ||
+                           // Buyer placing a catalog order syncs aggregate totals only
+                           (isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly([
+                             'memberCount', 'totalOrderValue', 'totalPaidAmount', 'updatedAt'
+                           ]))
+                         );
+      }
+
+      // 2. Member Orders
+      match /members/{memberId} {
+        allow get: if isSignedIn() && storeId == 'jiego' && isValidId(memberId);
+        allow list: if isSignedIn() && storeId == 'jiego';
+        allow delete: if isStoreOwner() && storeId == 'jiego' && isValidId(memberId);
+
+        allow create: if (isStoreOwner() || (isSignedIn() && incoming().userId == request.auth.uid)) &&
+                         storeId == 'jiego' &&
+                         isValidId(memberId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'orderId', 'memberName', 'memberHandle', 'isCurrentUser',
+                           'shippingFee', 'totalItemsCost', 'paidAmount', 'orderStatus',
+                           'lastPaymentMethod', 'notes', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'orderId', 'memberName', 'memberHandle', 'isCurrentUser',
+                           'shippingFee', 'totalItemsCost', 'paidAmount', 'orderStatus',
+                           'lastPaymentMethod', 'notes', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidMemberOrder(incoming(), request.auth.uid) &&
+                         exists(/databases/$(database)/documents/stores/$(storeId)/groupOrders/$(incoming().orderId));
+
+        allow update: if isStoreOwner() &&
+                         storeId == 'jiego' &&
+                         isValidId(memberId) &&
+                         isValidMemberOrder(incoming(), existing().userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().orderId == existing().orderId &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'paidAmount', 'lastPaymentMethod', 'updatedAt'
+                           ]) ||
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'memberName', 'memberHandle', 'isCurrentUser', 'shippingFee',
+                             'orderStatus', 'notes', 'updatedAt'
+                           ]) ||
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'totalItemsCost', 'updatedAt'
+                           ])
+                         );
+      }
+
+      // 3. Order Items
+      match /items/{itemId} {
+        allow get: if isSignedIn() && storeId == 'jiego' && isValidId(itemId);
+        allow list: if isSignedIn() && storeId == 'jiego';
+        allow delete: if isStoreOwner() && storeId == 'jiego' && isValidId(itemId);
+
+        allow create: if (isStoreOwner() || (isSignedIn() && incoming().userId == request.auth.uid)) &&
+                         storeId == 'jiego' &&
+                         isValidId(itemId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'orderId', 'memberId', 'itemName', 'variant',
+                           'quantity', 'unitPrice', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'orderId', 'memberId', 'itemName', 'variant',
+                           'quantity', 'unitPrice', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidOrderItem(incoming(), request.auth.uid) &&
+                         exists(/databases/$(database)/documents/stores/$(storeId)/groupOrders/$(incoming().orderId)) &&
+                         exists(/databases/$(database)/documents/stores/$(storeId)/members/$(incoming().memberId));
+
+        allow update: if isStoreOwner() &&
+                         storeId == 'jiego' &&
+                         isValidId(itemId) &&
+                         isValidOrderItem(incoming(), existing().userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().orderId == existing().orderId &&
+                         incoming().memberId == existing().memberId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'itemName', 'variant', 'quantity', 'unitPrice', 'updatedAt'
+                         ]);
+      }
+
+      // 4. Notifications
+      match /notifications/{notificationId} {
+        allow get: if isSignedIn() && storeId == 'jiego' && isValidId(notificationId);
+        allow list: if isSignedIn() && storeId == 'jiego';
+        allow delete: if isStoreOwner() && storeId == 'jiego' && isValidId(notificationId);
+
+        allow create: if (isStoreOwner() || (isSignedIn() && incoming().userId == request.auth.uid && incoming().type in ['PHOTO_UPDATE', 'ORDER_STATUS'])) &&
+                         storeId == 'jiego' &&
+                         isValidId(notificationId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'orderId', 'orderName', 'memberId',
+                           'type', 'title', 'message', 'isRead', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'orderId', 'orderName', 'memberId',
+                           'type', 'title', 'message', 'isRead', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidNotification(incoming(), request.auth.uid);
+
+        allow update: if isSignedIn() &&
+                         storeId == 'jiego' &&
+                         isValidId(notificationId) &&
+                         isValidNotification(incoming(), existing().userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().orderId == existing().orderId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'isRead', 'updatedAt'
+                         ]);
+      }
+
+      // 5. Store Catalog Items
+      match /catalogItems/{catalogId} {
+        allow get: if isSignedIn() && storeId == 'jiego' && isValidId(catalogId);
+        allow list: if isSignedIn() && storeId == 'jiego';
+        allow delete: if isStoreOwner() && storeId == 'jiego' && isValidId(catalogId);
+
+        allow create: if isStoreOwner() &&
+                         storeId == 'jiego' &&
+                         isValidId(catalogId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'title', 'artistGroup', 'category', 'price',
+                           'dpAmount', 'stock', 'components', 'imageKey', 'notes',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'title', 'artistGroup', 'category', 'price',
+                           'dpAmount', 'stock', 'components', 'imageKey', 'imageBase64', 'notes',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidCatalogItem(incoming(), request.auth.uid);
+
+        allow update: if storeId == 'jiego' &&
+                         isValidId(catalogId) &&
+                         isValidCatalogItem(incoming(), existing().userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           (isStoreOwner() && (
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'stock', 'updatedAt'
+                             ]) ||
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'imageKey', 'imageBase64', 'updatedAt'
+                             ]) ||
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'title', 'artistGroup', 'category', 'price', 'dpAmount',
+                               'stock', 'components', 'imageKey', 'imageBase64', 'notes', 'updatedAt'
+                             ])
+                           )) ||
+                           (isSignedIn() &&
+                            incoming().diff(existing()).affectedKeys().hasOnly(['stock', 'updatedAt']) &&
+                            incoming().stock == existing().stock - 1 &&
+                            incoming().stock >= 0)
+                         );
+      }
+
+      // 6. Exchange Rates Settings (Owner Only Write, All Signed-In Read)
+      match /settings/{settingId} {
+        allow get: if isSignedIn() && storeId == 'jiego' && settingId == 'exchangeRates';
+        allow list: if isSignedIn() && storeId == 'jiego';
+        allow delete: if isStoreOwner() && storeId == 'jiego' && settingId == 'exchangeRates';
+
+        allow create: if isStoreOwner() &&
+                         storeId == 'jiego' &&
+                         settingId == 'exchangeRates' &&
+                         incoming().keys().hasAll([
+                           'userId', 'china', 'korea', 'thailand',
+                           'jepang', 'vietnam', 'taiwan', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'china', 'korea', 'thailand',
+                           'jepang', 'vietnam', 'taiwan', 'updatedAt'
+                         ]) &&
+                         isValidExchangeRates(incoming(), request.auth.uid);
+
+        allow update: if isStoreOwner() &&
+                         storeId == 'jiego' &&
+                         settingId == 'exchangeRates' &&
+                         incoming().keys().hasAll([
+                           'userId', 'china', 'korea', 'thailand',
+                           'jepang', 'vietnam', 'taiwan', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'china', 'korea', 'thailand',
+                           'jepang', 'vietnam', 'taiwan', 'updatedAt'
+                         ]) &&
+                         incoming().userId == existing().userId &&
+                         isValidExchangeRates(incoming(), existing().userId);
+      }
+
+      // 7. Photo Updates (Owner proof/WH/packing + Buyer TESTI)
+      match /photoUpdates/{photoId} {
+        allow get: if isSignedIn() && storeId == 'jiego' && isValidId(photoId);
+        allow list: if isSignedIn() && storeId == 'jiego';
+
+        allow create: if storeId == 'jiego' &&
+                         isValidId(photoId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'category', 'uploaderRole', 'uploaderName',
+                           'uploaderPhone', 'orderId', 'orderName', 'caption',
+                           'imageBase64', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'category', 'uploaderRole', 'uploaderName',
+                           'uploaderPhone', 'orderId', 'orderName', 'caption',
+                           'imageBase64', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidPhotoUpdate(incoming(), request.auth.uid) &&
+                         (
+                           isStoreOwner() ||
+                           (isSignedIn() && incoming().uploaderRole == 'BUYER' && incoming().category == 'TESTI')
+                         );
+
+        allow update: if storeId == 'jiego' &&
+                         isValidId(photoId) &&
+                         isValidPhotoUpdate(incoming(), existing().userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'category', 'uploaderName', 'uploaderPhone',
+                           'orderId', 'orderName', 'caption', 'imageBase64', 'updatedAt'
+                         ]) &&
+                         (
+                           isStoreOwner() ||
+                           (isSignedIn() &&
+                            existing().userId == request.auth.uid &&
+                            existing().uploaderRole == 'BUYER' &&
+                            incoming().uploaderRole == 'BUYER' &&
+                            incoming().category == 'TESTI')
+                         );
+
+        allow delete: if storeId == 'jiego' &&
+                         isValidId(photoId) &&
+                         (
+                           isStoreOwner() ||
+                           (isSignedIn() && existing().userId == request.auth.uid && existing().uploaderRole == 'BUYER')
+                         );
+      }
+
+      // 8. Notification Subscribers (Buyers register own email only; Owner lists all buyer emails privately)
+      match /subscribers/{subscriberId} {
+        allow get: if isSignedIn() && storeId == 'jiego' && isValidId(subscriberId) &&
+                      (request.auth.uid == subscriberId || isStoreOwner());
+        allow list: if isStoreOwner() && storeId == 'jiego';
+
+        allow create: if isSignedIn() &&
+                         storeId == 'jiego' &&
+                         subscriberId == request.auth.uid &&
+                         isValidId(subscriberId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'email', 'displayName', 'platform', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'email', 'displayName', 'platform', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidSubscriber(incoming(), request.auth.uid);
+
+        allow update: if isSignedIn() &&
+                         storeId == 'jiego' &&
+                         subscriberId == request.auth.uid &&
+                         isValidId(subscriberId) &&
+                         isValidSubscriber(incoming(), existing().userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'email', 'displayName', 'platform', 'updatedAt'
+                         ]);
+
+        allow delete: if storeId == 'jiego' &&
+                         isValidId(subscriberId) &&
+                         (isStoreOwner() || (isSignedIn() && request.auth.uid == subscriberId));
+      }
+    }
+  }
+}

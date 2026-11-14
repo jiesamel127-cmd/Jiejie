@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">JIEGO</string>
+    <string name="notification_channel_name">Pembaruan Grup Order JIEGO</string>
+    <string name="notification_channel_desc">Status pesanan, pengingat tenggat pembayaran, dan perubahan informasi grup order JIEGO</string>
+    <string name="sign_in_title">JIEGO</string>
+    <string name="sign_in_subtitle">Pantau status belanjaan, rincian item, dan sisa tagihan grup order K-Pop JIEGO dalam satu tempat.</string>
+    <string name="sign_in_button">Masuk dengan Google</string>
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_catalog">Katalog</string>
+    <string name="nav_photos">Foto</string>
+    <string name="nav_my_orders">Belanjaan Saya</string>
+    <string name="nav_notifications">Notifikasi</string>
+    <string name="cd_back">Kembali</string>
+    <string name="cd_sign_out">Keluar akun</string>
+    <string name="cd_add_group_order">Buat grup order baru</string>
+    <string name="cd_hero_banner">Ilustrasi grup order album dan merchandise K-Pop JIEGO</string>
+    <string name="cd_empty_illustration">Ilustrasi daftar pesanan JIEGO kosong</string>
+    <string name="cd_jiego_logo">Logo maskot grup JIEGO</string>
+</resources>
